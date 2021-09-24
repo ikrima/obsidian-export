@@ -30,6 +30,10 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str;
 
+// Trait for extending std::path::Path
+// use path_slash::PathExt;
+use path_slash::PathBufExt;
+
 /// A series of markdown [Event]s that are generated while traversing an Obsidian markdown note.
 pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 
@@ -696,7 +700,7 @@ impl<'a> Exporter<'a> {
         )
         .expect("should be able to build relative path when target file is found in vault");
 
-        let rel_link = rel_link.to_string_lossy();
+        let rel_link = rel_link.to_slash_lossy();
         let mut link = utf8_percent_encode(&rel_link, PERCENTENCODE_CHARS).to_string();
 
         if let Some(section) = reference.section {

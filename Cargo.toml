@@ -39,6 +39,7 @@ regex = "1.5.3"
 serde_yaml = "0.8.21"
 slug = "0.1.4"
 snafu = "0.6.10"
+path-slash = "0.1.4"
 
 [dev-dependencies]
 pretty_assertions = "0.7.2"
