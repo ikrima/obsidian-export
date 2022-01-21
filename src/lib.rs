@@ -6,6 +6,7 @@ extern crate lazy_static;
 
 mod context;
 mod frontmatter;
+pub mod postprocessors;
 mod references;
 mod walker;
 
@@ -16,7 +17,7 @@ pub use walker::{vault_contents, WalkOptions};
 use frontmatter::{frontmatter_from_str, frontmatter_to_str};
 use pathdiff::diff_paths;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
-use pulldown_cmark::{CodeBlockKind, CowStr, Event, Options, Parser, Tag};
+use pulldown_cmark::{CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag};
 use pulldown_cmark_to_cmark::cmark_with_options;
 use rayon::prelude::*;
 use references::*;
@@ -77,9 +78,8 @@ pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 /// defined inline as a closure.
 ///
 /// ```
-/// use obsidian_export::{Context, Exporter, MarkdownEvents, PostprocessorResult};
-/// use obsidian_export::pulldown_cmark::{CowStr, Event};
 /// use obsidian_export::serde_yaml::Value;
+/// use obsidian_export::{Exporter, PostprocessorResult};
 /// # use std::path::PathBuf;
 /// # use tempfile::TempDir;
 ///
@@ -89,7 +89,7 @@ pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 /// let mut exporter = Exporter::new(source, destination);
 ///
 /// // add_postprocessor registers a new postprocessor. In this example we use a closure.
-/// exporter.add_postprocessor(&|mut context, events| {
+/// exporter.add_postprocessor(&|context, _events| {
 ///     // This is the key we'll insert into the frontmatter. In this case, the string "foo".
 ///     let key = Value::String("foo".to_string());
 ///     // This is the value we'll insert into the frontmatter. In this case, the string "bar".
@@ -98,9 +98,8 @@ pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 ///     // Frontmatter can be updated in-place, so we can call insert on it directly.
 ///     context.frontmatter.insert(key, value);
 ///
-///     // Postprocessors must return their (modified) context, the markdown events that make
-///     // up the note and a next action to take.
-///     (context, events, PostprocessorResult::Continue)
+///     // This return value indicates processing should continue.
+///     PostprocessorResult::Continue
 /// });
 ///
 /// exporter.run().unwrap();
@@ -120,18 +119,13 @@ pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 /// # use tempfile::TempDir;
 /// #
 /// /// This postprocessor replaces any instance of "foo" with "bar" in the note body.
-/// fn foo_to_bar(
-///     context: Context,
-///     events: MarkdownEvents,
-/// ) -> (Context, MarkdownEvents, PostprocessorResult) {
-///     let events = events
-///         .into_iter()
-///         .map(|event| match event {
-///             Event::Text(text) => Event::Text(CowStr::from(text.replace("foo", "bar"))),
-///             event => event,
-///         })
-///         .collect();
-///     (context, events, PostprocessorResult::Continue)
+/// fn foo_to_bar(context: &mut Context, events: &mut MarkdownEvents) -> PostprocessorResult {
+///     for event in events.iter_mut() {
+///         if let Event::Text(text) = event {
+///             *event = Event::Text(CowStr::from(text.replace("foo", "bar")))
+///         }
+///     }
+///     PostprocessorResult::Continue
 /// }
 ///
 /// # let tmp_dir = TempDir::new().expect("failed to make tempdir");
@@ -143,7 +137,7 @@ pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 /// ```
 
 pub type Postprocessor =
-    dyn Fn(Context, MarkdownEvents) -> (Context, MarkdownEvents, PostprocessorResult) + Send + Sync;
+    dyn Fn(&mut Context, &mut MarkdownEvents) -> PostprocessorResult + Send + Sync;
 type Result<T, E = ExportError> = std::result::Result<T, E>;
 
 const PERCENTENCODE_CHARS: &AsciiSet = &CONTROLS.add(b' ').add(b'(').add(b')').add(b'%').add(b'?');
@@ -410,10 +404,7 @@ impl<'a> Exporter<'a> {
         let (frontmatter, mut markdown_events) = self.parse_obsidian_note(src, &context)?;
         context.frontmatter = frontmatter;
         for func in &self.postprocessors {
-            let res = func(context, markdown_events);
-            context = res.0;
-            markdown_events = res.1;
-            match res.2 {
+            match func(&mut context, &mut markdown_events) {
                 PostprocessorResult::StopHere => break,
                 PostprocessorResult::StopAndSkipNote => return Ok(()),
                 PostprocessorResult::Continue => (),
@@ -618,10 +609,7 @@ impl<'a> Exporter<'a> {
                 for func in &self.embed_postprocessors {
                     // Postprocessors running on embeds shouldn't be able to change frontmatter (or
                     // any other metadata), so we give them a clone of the context.
-                    let res = func(child_context, events);
-                    child_context = res.0;
-                    events = res.1;
-                    match res.2 {
+                    match func(&mut child_context, &mut events) {
                         PostprocessorResult::StopHere => break,
                         PostprocessorResult::StopAndSkipNote => {
                             events = vec![];
@@ -631,7 +619,7 @@ impl<'a> Exporter<'a> {
                 }
                 events
             }
-            Some("png") | Some("jpg") | Some("jpeg") | Some("gif") | Some("webp") => {
+            Some("png") | Some("jpg") | Some("jpeg") | Some("gif") | Some("webp") | Some("svg") => {
                 self.make_link_to_file(note_ref, &child_context)
                     .into_iter()
                     .map(|event| match event {
@@ -796,14 +784,15 @@ fn reduce_to_section<'a, 'b>(events: MarkdownEvents<'a>, section: &'b str) -> Ma
     let mut filtered_events = Vec::with_capacity(events.len());
     let mut target_section_encountered = false;
     let mut currently_in_target_section = false;
-    let mut section_level = 0;
-    let mut last_level = 0;
+    let mut section_level = HeadingLevel::H1;
+    let mut last_level = HeadingLevel::H1;
     let mut last_tag_was_heading = false;
 
     for event in events.into_iter() {
         filtered_events.push(event.clone());
         match event {
-            Event::Start(Tag::Heading(level)) => {
+            // FIXME: This should propagate fragment_identifier and classes.
+            Event::Start(Tag::Heading(level, _fragment_identifier, _classes)) => {
                 last_tag_was_heading = true;
                 last_level = level;
                 if currently_in_target_section && level <= section_level {
@@ -859,7 +848,10 @@ fn event_to_owned<'a>(event: Event) -> Event<'a> {
 fn tag_to_owned<'a>(tag: Tag) -> Tag<'a> {
     match tag {
         Tag::Paragraph => Tag::Paragraph,
-        Tag::Heading(level) => Tag::Heading(level),
+        Tag::Heading(level, _fragment_identifier, _classes) => {
+            // FIXME: This should propagate fragment_identifier and classes.
+            Tag::Heading(level, None, Vec::new())
+        }
         Tag::BlockQuote => Tag::BlockQuote,
         Tag::CodeBlock(codeblock_kind) => Tag::CodeBlock(codeblock_kind_to_owned(codeblock_kind)),
         Tag::List(optional) => Tag::List(optional),
