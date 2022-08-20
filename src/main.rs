@@ -1,6 +1,6 @@
 use eyre::{eyre, Result};
 use gumdrop::Options;
-use obsidian_export::postprocessors::softbreaks_to_hardbreaks;
+use obsidian_export::postprocessors::{softbreaks_to_hardbreaks, add_embed_info};
 use obsidian_export::{ExportError, Exporter, FrontmatterStrategy, WalkOptions};
 use std::{env, path::PathBuf};
 
@@ -54,6 +54,13 @@ struct Opts {
         default = "false"
     )]
     hard_linebreaks: bool,
+
+    #[options(
+        no_short,
+        help = "Add div tags around embedded content, containing the link to the file",
+        default = "false"
+    )]
+    embed_info: bool,
 }
 
 fn frontmatter_strategy_from_str(input: &str) -> Result<FrontmatterStrategy> {
@@ -92,6 +99,10 @@ fn main() {
 
     if args.hard_linebreaks {
         exporter.add_postprocessor(&softbreaks_to_hardbreaks);
+    }
+
+    if args.embed_info {
+        exporter.add_embed_postprocessor(&add_embed_info);
     }
 
     if let Some(path) = args.start_at {

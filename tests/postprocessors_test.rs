@@ -1,4 +1,4 @@
-use obsidian_export::postprocessors::softbreaks_to_hardbreaks;
+use obsidian_export::postprocessors::{softbreaks_to_hardbreaks, add_embed_info};
 use obsidian_export::{Context, Exporter, MarkdownEvents, PostprocessorResult};
 use pretty_assertions::assert_eq;
 use pulldown_cmark::{CowStr, Event};
@@ -215,6 +215,29 @@ fn test_softbreaks_to_hardbreaks() {
             .path()
             .clone()
             .join(PathBuf::from("hard_linebreaks.md")),
+    )
+    .unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn test_embed_info() {
+    let tmp_dir = TempDir::new().expect("failed to make tempdir");
+    let mut exporter = Exporter::new(
+        PathBuf::from("tests/testdata/input/main-samples"),
+        tmp_dir.path().to_path_buf(),
+    );
+
+    exporter.add_embed_postprocessor(&add_embed_info);
+    exporter.run().unwrap();
+
+    let expected =
+        read_to_string("tests/testdata/expected/embed-info/note.md").unwrap();
+    let actual = read_to_string(
+        tmp_dir
+            .path()
+            .clone()
+            .join(PathBuf::from("embeds-partial-note.md")),
     )
     .unwrap();
     assert_eq!(expected, actual);

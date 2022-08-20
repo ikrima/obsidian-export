@@ -31,6 +31,8 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str;
 
+use serde_yaml::Value;
+
 /// A series of markdown [Event]s that are generated while traversing an Obsidian markdown note.
 pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 
@@ -582,7 +584,7 @@ impl<'a> Exporter<'a> {
             );
             return Ok(vec![]);
         }
-
+        
         let path = path.unwrap();
         let mut child_context = Context::from_parent(context, path);
         let no_ext = OsString::new();
@@ -599,6 +601,15 @@ impl<'a> Exporter<'a> {
             Some("md") => {
                 let (frontmatter, mut events) = self.parse_obsidian_note(path, &child_context)?;
                 child_context.frontmatter = frontmatter;
+
+                let key = Value::String("embed_link".to_string());
+                child_context.frontmatter.insert(
+                    key,
+                    Value::String(
+                        render_mdevents_to_mdtext(self.make_link_to_file(note_ref.clone(), &child_context))
+                    ),
+                );
+
                 if let Some(section) = note_ref.section {
                     events = reduce_to_section(events, section);
                 }
