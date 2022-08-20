@@ -27,12 +27,12 @@ pub fn add_embed_info(
 ) -> PostprocessorResult {
     let key = Value::String("embed_link".to_string());
 
-    events.insert(0, Event::Text(CowStr::from(" <div class=\"markdown-embed\">\n<div class=\"markdown-embed-content\">\n")));
+    events.insert(0, Event::Text(CowStr::from("\n<div class=\"markdown-embed\">\n<div class=\"markdown-embed-content\">\n\n")));
     events.push(
         Event::Text(
             CowStr::from(
                 format!(
-                    " </div>\n<div class=\"markdown-embed-link\" style=\"display:none;\">\n{}</div>\n</div>", 
+                    "\n</div>\n<div class=\"markdown-embed-link\" style=\"display:none;\">\n{}</div>\n</div>", 
                     context.frontmatter.get(&key).unwrap().as_str().unwrap(),
                 )
             )
