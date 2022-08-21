@@ -7,6 +7,7 @@ extern crate lazy_static;
 mod context;
 mod frontmatter;
 pub mod postprocessors;
+pub mod hugofronmatter;
 mod references;
 mod walker;
 

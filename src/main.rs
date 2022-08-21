@@ -1,6 +1,7 @@
 use eyre::{eyre, Result};
 use gumdrop::Options;
 use obsidian_export::postprocessors::{softbreaks_to_hardbreaks, add_embed_info};
+use obsidian_export::hugofronmatter::hugo_frontmatter;
 use obsidian_export::{ExportError, Exporter, FrontmatterStrategy, WalkOptions};
 use std::{env, path::PathBuf};
 
@@ -64,6 +65,13 @@ struct Opts {
 
     #[options(
         no_short,
+        help = "Adds title to frontmatter.",
+        default = "false"
+    )]
+    hugo_frontmatter: bool,
+
+    #[options(
+        no_short,
         help = "Retain the wikilinks to other notes.",
         default = "false"
     )]
@@ -107,6 +115,10 @@ fn main() {
 
     if args.hard_linebreaks {
         exporter.add_postprocessor(&softbreaks_to_hardbreaks);
+    }
+
+    if args.hugo_frontmatter {
+        exporter.add_postprocessor(&hugo_frontmatter);
     }
 
     if args.embed_info {
