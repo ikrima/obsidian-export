@@ -1,6 +1,7 @@
 use eyre::{eyre, Result};
 use gumdrop::Options;
-use obsidian_export::postprocessors::{softbreaks_to_hardbreaks, add_embed_info, hugo_frontmatter};
+use obsidian_export::postprocessors::{softbreaks_to_hardbreaks, add_embed_info};
+use obsidian_export::hugofronmatter::hugo_frontmatter;
 use obsidian_export::{ExportError, Exporter, FrontmatterStrategy, WalkOptions};
 use std::{env, path::PathBuf};
 
