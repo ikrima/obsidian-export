@@ -61,6 +61,13 @@ struct Opts {
         default = "false"
     )]
     embed_info: bool,
+
+    #[options(
+        no_short,
+        help = "Retain the wikilinks to other notes.",
+        default = "false"
+    )]
+    retain_wikilinks: bool,
 }
 
 fn frontmatter_strategy_from_str(input: &str) -> Result<FrontmatterStrategy> {
@@ -96,6 +103,7 @@ fn main() {
     exporter.frontmatter_strategy(args.frontmatter_strategy);
     exporter.process_embeds_recursively(!args.no_recursive_embeds);
     exporter.walk_options(walk_options);
+    exporter.retain_wikilinks(args.retain_wikilinks);
 
     if args.hard_linebreaks {
         exporter.add_postprocessor(&softbreaks_to_hardbreaks);

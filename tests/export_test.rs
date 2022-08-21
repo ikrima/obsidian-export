@@ -364,6 +364,23 @@ fn test_no_recursive_embeds() {
 }
 
 #[test]
+fn test_retain_wikilinks() {
+    let tmp_dir = TempDir::new().expect("failed to make tempdir");
+
+    let mut exporter = Exporter::new(
+        PathBuf::from("tests/testdata/input/single-file/"),
+        tmp_dir.path().to_path_buf(),
+    );
+    exporter.retain_wikilinks(true);
+    exporter.run().expect("exporter returned error");
+
+    assert_eq!(
+        read_to_string("tests/testdata/expected/retain-wikilinks/note.md").unwrap(),
+        read_to_string(tmp_dir.path().clone().join(PathBuf::from("note.md"))).unwrap(),
+    );
+}
+
+#[test]
 fn test_non_ascii_filenames() {
     let tmp_dir = TempDir::new().expect("failed to make tempdir");
 

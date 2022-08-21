@@ -234,6 +234,7 @@ pub struct Exporter<'a> {
     process_embeds_recursively: bool,
     postprocessors: Vec<&'a Postprocessor>,
     embed_postprocessors: Vec<&'a Postprocessor>,
+    retain_wikilinks: bool,
 }
 
 impl<'a> fmt::Debug for Exporter<'a> {
@@ -259,6 +260,7 @@ impl<'a> fmt::Debug for Exporter<'a> {
                     self.embed_postprocessors.len()
                 ),
             )
+            .field("retain_wikilinks", &self.retain_wikilinks)
             .finish()
     }
 }
@@ -277,6 +279,7 @@ impl<'a> Exporter<'a> {
             vault_contents: None,
             postprocessors: vec![],
             embed_postprocessors: vec![],
+            retain_wikilinks: false,
         }
     }
 
@@ -323,6 +326,12 @@ impl<'a> Exporter<'a> {
     /// Append a function to the chain of [postprocessors][Postprocessor] for embeds.
     pub fn add_embed_postprocessor(&mut self, processor: &'a Postprocessor) -> &mut Exporter<'a> {
         self.embed_postprocessors.push(processor);
+        self
+    }
+
+    /// Wether to retain wikilinks style for note links or not.
+    pub fn retain_wikilinks(&mut self, retain_wikilinks: bool) -> &mut Exporter<'a> {
+        self.retain_wikilinks = retain_wikilinks;
         self
     }
 
@@ -515,12 +524,23 @@ impl<'a> Exporter<'a> {
                 RefParserState::ExpectFinalCloseBracket => match event {
                     Event::Text(CowStr::Borrowed("]")) => match ref_parser.ref_type {
                         Some(RefType::Link) => {
-                            let mut elements = self.make_link_to_file(
-                                ObsidianNoteReference::from_str(
-                                    ref_parser.ref_text.clone().as_ref()
-                                ),
-                                context,
-                            );
+                            let mut elements: Vec<Event>;
+
+                            if self.retain_wikilinks {
+                                elements = self.make_wiki_link(
+                                    ObsidianNoteReference::from_str(
+                                        ref_parser.ref_text.clone().as_ref()
+                                    ),
+                                    context,
+                                );
+                            } else {
+                                elements = self.make_link_to_file(
+                                    ObsidianNoteReference::from_str(
+                                        ref_parser.ref_text.clone().as_ref()
+                                    ),
+                                    context,
+                                );
+                            }
                             events.append(&mut elements);
                             buffer.clear();
                             ref_parser.transition(RefParserState::Resetting);
@@ -655,6 +675,67 @@ impl<'a> Exporter<'a> {
             _ => self.make_link_to_file(note_ref, &child_context),
         };
         Ok(events)
+    }
+
+    fn make_wiki_link<'b, 'c>(
+        &self,
+        reference: ObsidianNoteReference<'b>,
+        context: &Context,
+    ) -> MarkdownEvents<'c> {
+        let target_file = reference
+            .file
+            .map(|file| lookup_filename_in_vault(file, &self.vault_contents.as_ref().unwrap()))
+            .unwrap_or_else(|| Some(context.current_file()));
+
+        if target_file.is_none() {
+            // TODO: Extract into configurable function.
+            eprintln!(
+                "Warning: Unable to find referenced note\n\tReference: '{}'\n\tSource: '{}'\n",
+                reference
+                    .file
+                    .unwrap_or_else(|| context.current_file().to_str().unwrap()),
+                context.current_file().display(),
+            );
+            return vec![
+                Event::Start(Tag::Emphasis),
+                Event::Text(CowStr::from(reference.display())),
+                Event::End(Tag::Emphasis),
+            ];
+        }
+
+        let target_file = target_file.unwrap();
+        // We use root_file() rather than current_file() here to make sure links are always
+        // relative to the outer-most note, which is the note which this content is inserted into
+        // in case of embedded notes.
+        let rel_link = diff_paths(
+            target_file,
+            &context
+                .root_file()
+                .parent()
+                .expect("obsidian content files should always have a parent"),
+        )
+        .expect("should be able to build relative path when target file is found in vault");
+
+        let rel_link = rel_link.with_extension("");
+        let mut link = utf8_percent_encode(&rel_link.to_string_lossy(), PERCENTENCODE_CHARS).to_string();
+
+        if let Some(section) = reference.section {
+            link.push('#');
+            link.push_str(&slugify(section));
+        }
+
+        if let Some(label) = reference.label {
+            link.push('|');
+            link.push_str(label);
+        }
+
+        // Because of a bug (feature) in pulldown_cmark_to_cmark, we have
+        // to include an extra space here. Otherwise it would escape [ character.
+        let wikilink = format!(" [[{}]]", link.to_string());
+
+        vec![
+            Event::Text(CowStr::from(wikilink.to_string())),
+        ]
     }
 
     fn make_link_to_file<'b, 'c>(
