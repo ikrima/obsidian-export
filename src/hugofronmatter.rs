@@ -83,7 +83,7 @@ pub fn hugo_frontmatter(
         context.frontmatter.remove(&summary_key);
     }
 
-    // Change `id` field to `url` field
+    // Change `id` field to `url` field. We assume that id field will always be present.
     let id_key = Value::String("id".to_string());
     let id_value = context.frontmatter.remove(&id_key).unwrap();
     context.frontmatter.insert(Value::String("url".to_string()), id_value);
