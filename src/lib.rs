@@ -718,7 +718,8 @@ impl<'a> Exporter<'a> {
         .expect("should be able to build relative path when target file is found in vault");
 
         let rel_link = rel_link.with_extension("");
-        let mut link = utf8_percent_encode(&rel_link.to_string_lossy(), PERCENTENCODE_CHARS).to_string();
+        // let mut link = utf8_percent_encode(&rel_link.to_string_lossy(), PERCENTENCODE_CHARS).to_string();
+        let mut link = rel_link.to_string_lossy().to_string();
 
         if let Some(section) = reference.section {
             link.push('#');
@@ -728,6 +729,9 @@ impl<'a> Exporter<'a> {
         if let Some(label) = reference.label {
             link.push('|');
             link.push_str(label);
+        } else {
+            link.push('|');
+            link.push_str(&reference.display());
         }
 
         // Because of a bug (feature) in pulldown_cmark_to_cmark, we have
