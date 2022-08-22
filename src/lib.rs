@@ -236,6 +236,7 @@ pub struct Exporter<'a> {
     postprocessors: Vec<&'a Postprocessor>,
     embed_postprocessors: Vec<&'a Postprocessor>,
     retain_wikilinks: bool,
+    flat_hierarchy: bool,
 }
 
 impl<'a> fmt::Debug for Exporter<'a> {
@@ -262,6 +263,7 @@ impl<'a> fmt::Debug for Exporter<'a> {
                 ),
             )
             .field("retain_wikilinks", &self.retain_wikilinks)
+            .field("flat_hierarchy", &self.flat_hierarchy)
             .finish()
     }
 }
@@ -281,6 +283,7 @@ impl<'a> Exporter<'a> {
             postprocessors: vec![],
             embed_postprocessors: vec![],
             retain_wikilinks: false,
+            flat_hierarchy: false,
         }
     }
 
@@ -333,6 +336,12 @@ impl<'a> Exporter<'a> {
     /// Wether to retain wikilinks style for note links or not.
     pub fn retain_wikilinks(&mut self, retain_wikilinks: bool) -> &mut Exporter<'a> {
         self.retain_wikilinks = retain_wikilinks;
+        self
+    }
+
+    /// Wether to maintain a flat hierarchy or not.
+    pub fn flat_hierarchy(&mut self, flat_hierarchy: bool) -> &mut Exporter<'a> {
+        self.flat_hierarchy = flat_hierarchy;
         self
     }
 
@@ -411,6 +420,13 @@ impl<'a> Exporter<'a> {
 
         let (frontmatter, mut markdown_events) = self.parse_obsidian_note(src, &context)?;
         context.frontmatter = frontmatter;
+
+        // This can later be used in postprocessors.
+        if self.flat_hierarchy {
+            let dest_key = Value::String("destination".to_string());
+            context.frontmatter.insert(dest_key, Value::from(self.destination.to_string_lossy()));
+        }
+
         for func in &self.postprocessors {
             match func(&mut context, &mut markdown_events) {
                 PostprocessorResult::StopHere => break,
@@ -687,7 +703,7 @@ impl<'a> Exporter<'a> {
             .file
             .map(|file| lookup_filename_in_vault(file, &self.vault_contents.as_ref().unwrap()))
             .unwrap_or_else(|| Some(context.current_file()));
-
+        
         if target_file.is_none() {
             // TODO: Extract into configurable function.
             eprintln!(
@@ -705,21 +721,30 @@ impl<'a> Exporter<'a> {
         }
 
         let target_file = target_file.unwrap();
-        // We use root_file() rather than current_file() here to make sure links are always
-        // relative to the outer-most note, which is the note which this content is inserted into
-        // in case of embedded notes.
-        let rel_link = diff_paths(
-            target_file,
-            &context
-                .root_file()
-                .parent()
-                .expect("obsidian content files should always have a parent"),
-        )
-        .expect("should be able to build relative path when target file is found in vault");
 
-        let rel_link = rel_link.with_extension("");
-        // let mut link = utf8_percent_encode(&rel_link.to_string_lossy(), PERCENTENCODE_CHARS).to_string();
-        let mut link = rel_link.to_string_lossy().to_string();
+        let mut link;
+
+        if self.flat_hierarchy {
+            let rel_link = target_file.strip_prefix(self.root.as_os_str()).ok().unwrap();
+            let rel_link = rel_link.with_extension("");
+            link = rel_link.to_string_lossy().replace(".", "-").replace("/", "-");
+        } else {
+            // We use root_file() rather than current_file() here to make sure links are always
+            // relative to the outer-most note, which is the note which this content is inserted into
+            // in case of embedded notes.
+            let rel_link = diff_paths(
+                target_file,
+                &context
+                    .root_file()
+                    .parent()
+                    .expect("obsidian content files should always have a parent"),
+            )
+            .expect("should be able to build relative path when target file is found in vault");
+
+            let rel_link = rel_link.with_extension("");
+            link = rel_link.to_string_lossy().to_string();
+        }
+        
 
         if let Some(section) = reference.section {
             link.push('#');

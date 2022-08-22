@@ -1,6 +1,6 @@
 use eyre::{eyre, Result};
 use gumdrop::Options;
-use obsidian_export::postprocessors::{softbreaks_to_hardbreaks, add_embed_info};
+use obsidian_export::postprocessors::{softbreaks_to_hardbreaks, add_embed_info, flat_hierarchy};
 use obsidian_export::hugofronmatter::hugo_frontmatter;
 use obsidian_export::{ExportError, Exporter, FrontmatterStrategy, WalkOptions};
 use std::{env, path::PathBuf};
@@ -76,6 +76,13 @@ struct Opts {
         default = "false"
     )]
     retain_wikilinks: bool,
+
+    #[options(
+        no_short,
+        help = "Place all notes in a flat hierarchy, replacing '.' and '/' with '-'",
+        default = "false"
+    )]
+    flat: bool,
 }
 
 fn frontmatter_strategy_from_str(input: &str) -> Result<FrontmatterStrategy> {
@@ -112,6 +119,7 @@ fn main() {
     exporter.process_embeds_recursively(!args.no_recursive_embeds);
     exporter.walk_options(walk_options);
     exporter.retain_wikilinks(args.retain_wikilinks);
+    exporter.flat_hierarchy(args.flat);
 
     if args.hard_linebreaks {
         exporter.add_postprocessor(&softbreaks_to_hardbreaks);
@@ -123,6 +131,10 @@ fn main() {
 
     if args.embed_info {
         exporter.add_embed_postprocessor(&add_embed_info);
+    }
+
+    if args.flat {
+        exporter.add_postprocessor(&flat_hierarchy);
     }
 
     if let Some(path) = args.start_at {

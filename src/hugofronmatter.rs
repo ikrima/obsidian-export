@@ -2,7 +2,7 @@ extern crate chrono;
 use chrono::offset::Utc;
 use chrono::DateTime;
 
-use std::path::Path;
+use std::path::{Path};
 use std::fs;
 
 use super::{Context, MarkdownEvents, PostprocessorResult};
