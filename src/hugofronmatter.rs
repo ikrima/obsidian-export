@@ -83,10 +83,23 @@ pub fn hugo_frontmatter(
         context.frontmatter.remove(&summary_key);
     }
 
+    // Check if there's a `publish` field, and if so, rename it to draft.
+    let pub_key = Value::String("publish".to_string());
+    let pub_value = context.frontmatter.get(&pub_key);
+
+    
+    if !pub_value.is_none() && pub_value.unwrap().is_bool() {
+        let new_pub_value = pub_value.unwrap().clone();
+        context.frontmatter.remove(&pub_key);
+        context.frontmatter.insert(Value::String("draft".to_string()), new_pub_value);
+    }
+
     // Change `id` field to `url` field. We assume that id field will always be present.
     let id_key = Value::String("id".to_string());
     let id_value = context.frontmatter.remove(&id_key).unwrap();
     context.frontmatter.insert(Value::String("url".to_string()), id_value);
+
+    
 
     PostprocessorResult::Continue
 }
