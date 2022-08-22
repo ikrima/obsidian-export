@@ -640,11 +640,10 @@ impl<'a> Exporter<'a> {
                 child_context.frontmatter = frontmatter;
 
                 let key = Value::String("embed_link".to_string());
+
                 child_context.frontmatter.insert(
                     key,
-                    Value::String(
-                        render_mdevents_to_mdtext(self.make_link_to_file(note_ref.clone(), &child_context))
-                    ),
+                    Value::String(link_text.to_string()),
                 );
 
                 if let Some(section) = note_ref.section {
