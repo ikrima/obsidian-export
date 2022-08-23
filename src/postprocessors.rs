@@ -47,7 +47,7 @@ pub fn add_embed_info(
         title = label.to_string();
     }
 
-    events.insert(0, Event::Text(CowStr::from(format!("\n<div class=\"markdown-embed\">\n<div class=\"markdown-embed-title\">{}</div>\n<div class=\"markdown-embed-content\">\n\n\n", title))));
+    events.insert(0, Event::Text(CowStr::from(format!("\n<div class=\"markdown-embed\">\n<div class=\"markdown-embed-title\" style=\"display:none;\">{}</div>\n<div class=\"markdown-embed-content\">\n\n\n", title))));
     events.push(
         Event::Text(
             CowStr::from(
