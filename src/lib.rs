@@ -796,14 +796,20 @@ impl<'a> Exporter<'a> {
         // We use root_file() rather than current_file() here to make sure links are always
         // relative to the outer-most note, which is the note which this content is inserted into
         // in case of embedded notes.
+        // let rel_link = diff_paths(
+        //     target_file,
+        //     &context
+        //         .root_file()
+        //         .parent()
+        //         .expect("obsidian content files should always have a parent"),
+        // )
+        // .expect("should be able to build relative path when target file is found in vault");
+
+        // Make links relative to `root` directory.
         let rel_link = diff_paths(
             target_file,
-            &context
-                .root_file()
-                .parent()
-                .expect("obsidian content files should always have a parent"),
-        )
-        .expect("should be able to build relative path when target file is found in vault");
+            &self.root,
+        ).expect("should be able to build relative path when target file is found in vault");
 
         let rel_link = rel_link.to_string_lossy();
         let mut link = utf8_percent_encode(&rel_link, PERCENTENCODE_CHARS).to_string();
