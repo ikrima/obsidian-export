@@ -740,7 +740,22 @@ fn render_mdevents_to_mdtext(markdown: MarkdownEvents) -> String {
         markdown.iter(),
         &mut buffer,
         None,
-        pulldown_cmark_to_cmark::Options::default(),
+        // pulldown_cmark_to_cmark::Options::default(),
+        pulldown_cmark_to_cmark::Options {
+          newlines_after_headline: 2,
+          newlines_after_paragraph: 2,
+          newlines_after_codeblock: 2,
+          newlines_after_table: 2,
+          newlines_after_rule: 2,
+          newlines_after_list: 2,
+          newlines_after_blockquote: 2,
+          newlines_after_rest: 1,
+          code_block_token_count: 3,
+          code_block_token: '`',
+          list_token: '-',
+          emphasis_token: '_',
+          strong_token: "**",
+      },
     )
     .expect("formatting to string not expected to fail");
     buffer.push('\n');
