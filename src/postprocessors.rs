@@ -78,6 +78,7 @@ pub fn flat_hierarchy (
 
     // println!("Full path: {}", full_dest_path.display());
     context.destination = full_dest_path;
+    context.frontmatter.remove(&dest_key);
 
     PostprocessorResult::Continue
 
