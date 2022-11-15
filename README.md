@@ -217,7 +217,7 @@ And `layouts/_default/_markup/render-image.html` for images:
     {{- if strings.HasSuffix $url.Path ".md" -}}
       {{- relref .Page .Destination | safeURL -}}
     {{- else -}}
-      {{- printf "/%s%s" .Page.File.Dir .Destination | safeURL -}}
+      {{- path.Join "/" .Page.File.Dir .Destination | safeURL -}}
     {{- end -}}
   {{- else -}}
     {{- .Destination | safeURL -}}
@@ -241,6 +241,12 @@ With these hooks in place, links to both notes as well as file attachments shoul
 All of the functionality exposed by the `obsidian-export` CLI command is also accessible as a Rust library, exposed through the [`obsidian_export` crate](https://crates.io/crates/obsidian-export).
 
 To get started, visit the library documentation on [obsidian_export](https://docs.rs/obsidian-export/latest/obsidian_export/) and [obsidian_export::Exporter](https://docs.rs/obsidian-export/latest/obsidian_export/struct.Exporter.html).
+
+
+# Contributing
+
+I will happily accept bug fixes as well as enhancements, as long as they align with the overall scope and vision of the project.
+Please see [CONTRIBUTING](CONTRIBUTING.md) for more information.
 
 
 # License
