@@ -31,10 +31,6 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str;
 
-// Trait for extending std::path::Path
-// use path_slash::PathExt;
-use path_slash::PathBufExt;
-
 /// A series of markdown [Event]s that are generated while traversing an Obsidian markdown note.
 pub type MarkdownEvents<'a> = Vec<Event<'a>>;
 
@@ -669,15 +665,10 @@ impl<'a> Exporter<'a> {
                     .unwrap_or_else(|| context.current_file().to_str().unwrap()),
                 context.current_file().display(),
             );
-            let dummy_link_tag = pulldown_cmark::Tag::Link(
-                pulldown_cmark::LinkType::Inline,
-                CowStr::from(""),
-                CowStr::from(""),
-            );
             return vec![
-                Event::Start(dummy_link_tag.clone()),
-                Event::Text(CowStr::from(reference.display())),
-                Event::End(dummy_link_tag.clone()),
+              Event::Start(Tag::Emphasis),
+              Event::Text(CowStr::from(reference.display())),
+              Event::End(Tag::Emphasis),
             ];
         }
         let target_file = target_file.unwrap();
@@ -693,7 +684,7 @@ impl<'a> Exporter<'a> {
         )
         .expect("should be able to build relative path when target file is found in vault");
 
-        let rel_link = rel_link.to_slash_lossy();
+        let rel_link = rel_link.to_string_lossy();
         let mut link = utf8_percent_encode(&rel_link, PERCENTENCODE_CHARS).to_string();
 
         if let Some(section) = reference.section {
